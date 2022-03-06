@@ -132,6 +132,7 @@ public class GameFrame extends JFrame {
         });
 
         stopBtn.addActionListener(e -> {
+            this.boardPanel.setEnabled(true);
             if (worker != null) {
                 worker.stop();
                 disableComponents.forEach(component -> component.setEnabled(true));
