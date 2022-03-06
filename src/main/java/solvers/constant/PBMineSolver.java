@@ -1,6 +1,10 @@
-package main.java.solvers;
+package main.java.solvers.constant;
 
-import main.java.Cell;
+import main.java.game.Cell;
+import main.java.solvers.constraints.PBConstraintGeneratorBoard;
+import main.java.solvers.constraints.PBConstraintGeneratorOpenCells;
+import main.java.solvers.constraints.IPBConstraintGenerator;
+import main.java.solvers.SolverUtil;
 import org.sat4j.core.VecInt;
 import org.sat4j.pb.SolverFactory;
 import org.sat4j.pb.core.PBSolver;
@@ -11,80 +15,41 @@ import org.sat4j.specs.TimeoutException;
 
 import java.util.*;
 
-public class MyPBSolver extends AbstractSolver {
+public class PBMineSolver implements IConstantMineSolver {
 
     public final List<String> constraintLog;
 
-    public MyPBSolver(Cell[][] cells, int width, int height, int mines) {
-        super(cells, width, height, mines);
+    private final Cell[][] cells;
+    private final int width;
+    private final int height;
+    private final int mines;
+
+    public PBMineSolver(Cell[][] cells, int width, int height, int mines) {
+        this.cells = cells;
+        this.width = width;
+        this.height = height;
+        this.mines = mines;
         constraintLog = new ArrayList<>();
-    }
-
-    protected PBSolver generateBaseConstraints() {
-        constraintLog.clear();
-        PBSolver solver = SolverFactory.newDefault();
-        try {
-            addBoardConstraint(solver);
-            addOpenCellConstraint(solver);
-        } catch (ContradictionException e) {
-        }
-        return solver;
-    }
-
-    protected void addBoardConstraint(PBSolver solver)
-            throws ContradictionException {
-        IVecInt lits = new VecInt();
-        IVecInt coeffs = new VecInt();
-
-        // Constraint that sum of all cells must be the no.
-        // of mines present on the board
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                Cell current = cells[i][j];
-                lits.push(encodeCellId(current));
-                coeffs.push(1);
-            }
-        }
-        solver.addAtMost(lits, coeffs, mines);
-        solver.addAtLeast(lits, coeffs, mines);
-        lits.clear();
-        coeffs.clear();
-    }
-
-    protected void addOpenCellConstraint(PBSolver solver)
-            throws ContradictionException {
-        IVecInt lits = new VecInt();
-        IVecInt coeffs = new VecInt();
-
-        List<Cell> openCells = getLandCells();
-
-        for (Cell cell : openCells) {
-            lits.push(encodeCellId(cell));
-            coeffs.push(1);
-            solver.addAtMost(lits, coeffs, 0);
-            solver.addAtLeast(lits, coeffs, 0);
-            lits.clear();
-            coeffs.clear();
-
-            // Normal constraint
-            List<Cell> neighbours = getNeighbours(cell.getX(), cell.getY());
-            for (Cell c : neighbours) {
-                lits.push(encodeCellId(c));
-                coeffs.push(1);
-            }
-            solver.addAtMost(lits, coeffs, cell.getNumber());
-            solver.addAtLeast(lits, coeffs, cell.getNumber());
-            lits.clear();
-            coeffs.clear();
-        }
     }
 
     public Map<Cell, Boolean> getKnownCells() {
         Map<Cell, Boolean> results = new HashMap<>();
 
-        PBSolver solver = generateBaseConstraints();
+        PBSolver solver = SolverFactory.newDefault();
+        List<IPBConstraintGenerator> constraintGenerators = List.of(
+            new PBConstraintGeneratorBoard(),
+            new PBConstraintGeneratorOpenCells()
+        );
 
-        List<Cell> shoreCells = getClosedShoreCells();
+        for (var constraintGenerator : constraintGenerators) {
+            try {
+                constraintGenerator.generate(solver, cells, width, height, mines);
+            } catch (ContradictionException e) {
+                e.printStackTrace();
+            }
+        }
+
+        List<Cell> shoreCells = SolverUtil.getClosedShoreCells(cells);
 
         // Test all shore cells
         for (Cell cell : shoreCells) {
@@ -99,7 +64,7 @@ public class MyPBSolver extends AbstractSolver {
         }
 
         // Test a sea cell
-        List<Cell> seaCells = getSeaCells();
+        List<Cell> seaCells = SolverUtil.getSeaCells(cells);
         if (!seaCells.isEmpty()) {
             // if one sea cell is safe/a mine than all sea cells are safe/a mine
             Cell cell = seaCells.get(0);
@@ -115,10 +80,14 @@ public class MyPBSolver extends AbstractSolver {
             }
         }
 
+        // need to make sure that solver will get garbage collected
+        // https://gitlab.ow2.org/sat4j/sat4j/-/issues/55
         solver.reset();
-
+        solver = null;
         return results;
     }
+
+
 
     private Optional<Boolean> checkCellWithWeight(PBSolver solver, final Cell cell, final int weight) {
         IVecInt lit = new VecInt();
@@ -128,7 +97,7 @@ public class MyPBSolver extends AbstractSolver {
 
         Optional<Boolean> result = Optional.empty();
 
-        lit.push(encodeCellId(cell));
+        lit.push(SolverUtil.encodeCellId(cell, width));
         coeff.push(1);
 
         try {

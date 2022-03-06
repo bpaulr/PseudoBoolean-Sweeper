@@ -1,4 +1,4 @@
-package main.java;
+package main.java.game;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.List;

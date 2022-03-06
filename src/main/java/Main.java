@@ -1,5 +1,7 @@
 package main.java;
 
+import main.java.game.Difficulty;
+import main.java.game.MineSweeper;
 import main.java.gui.GameFrame;
 
 public class Main {

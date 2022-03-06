@@ -1,11 +1,11 @@
-package main.java.sims;
+package main.java.simulation;
 
-import main.java.Board;
-import main.java.Difficulty;
-import main.java.MineField;
-import main.java.MineSweeper;
-import main.java.solvers.MyPBSolver;
-import main.java.solvers.ProbabilitySolver;
+import main.java.game.Board;
+import main.java.game.Difficulty;
+import main.java.game.MineField;
+import main.java.game.MineSweeper;
+import main.java.solvers.constant.PBMineSolver;
+import main.java.solvers.probability.TrueProbabilityMineSolver;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -16,8 +16,8 @@ public class SolverProfiler {
 
     private final List<Class> SOLVER_CLASS_LIST = Arrays.asList(
             //        SinglePointSolver.class,
-            MyPBSolver.class,
-            ProbabilitySolver.class
+            PBMineSolver.class,
+            TrueProbabilityMineSolver.class
     );
 
     public static void main(String[] args) {
@@ -33,7 +33,7 @@ public class SolverProfiler {
             replaceField(game1, fields.get(i));
 //            replaceField(game2, fields.get(i));
 
-            MyPBSolver pbSolver = new MyPBSolver(game1.getCells(), game1.getWidth(),
+            PBMineSolver pbSolver = new PBMineSolver(game1.getCells(), game1.getWidth(),
                     game1.getHeight(), game1.getMines());
 
 //            ProbabilitySolver probSolver = new ProbabilitySolver(game2.getCells(),

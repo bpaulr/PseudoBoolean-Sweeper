@@ -1,14 +1,9 @@
 package main.java.gui;
 
-import main.java.Difficulty;
-import main.java.MineSweeper;
-import main.java.solvers.MyPBSolver;
-import main.java.solvers.ProbabilitySolver;
-import main.java.solvers.SinglePointSolver;
+import main.java.game.Difficulty;
+import main.java.game.MineSweeper;
 
 import javax.swing.*;
-import java.util.ArrayList;
-import java.util.List;
 
 public class GameMenuBar extends JMenuBar {
 
@@ -21,6 +16,7 @@ public class GameMenuBar extends JMenuBar {
     private JCheckBoxMenuItem singlePointCb;
     private JCheckBoxMenuItem pseudoBooleanCb;
     private JCheckBoxMenuItem probabilityCb;
+    private JCheckBoxMenuItem strategyCb;
 
     public GameMenuBar(GameFrame gameFrame) {
         this.gameFrame = gameFrame;
@@ -47,6 +43,8 @@ public class GameMenuBar extends JMenuBar {
         pseudoBooleanCb.setSelected(false);
         probabilityCb = new JCheckBoxMenuItem("Probability");
         probabilityCb.setSelected(false);
+        strategyCb = new JCheckBoxMenuItem("Strategy");
+        strategyCb.setSelected(false);
     }
 
     private void addMenusItems(JMenu menu) {
@@ -64,6 +62,7 @@ public class GameMenuBar extends JMenuBar {
         menu.add(singlePointCb);
         menu.add(pseudoBooleanCb);
         menu.add(probabilityCb);
+        menu.add(strategyCb);
 
         menu.addSeparator();
 
@@ -88,10 +87,6 @@ public class GameMenuBar extends JMenuBar {
             hardDiffRb.setEnabled(false);
             changeGameDifficulty();
         });
-
-        singlePointCb.addActionListener(e -> setSolvers());
-        pseudoBooleanCb.addActionListener(e -> setSolvers());
-        probabilityCb.addActionListener(e -> setSolvers());
     }
 
     private void changeGameDifficulty() {
@@ -109,17 +104,20 @@ public class GameMenuBar extends JMenuBar {
         gameFrame.resetGUI();
     }
 
-    private void setSolvers() {
-        List<Class> solvers = new ArrayList<>();
-        if (singlePointCb.isSelected()) {
-            solvers.add(SinglePointSolver.class);
-        }
-        if (pseudoBooleanCb.isSelected()) {
-            solvers.add(MyPBSolver.class);
-        }
-        if (probabilityCb.isSelected()) {
-            solvers.add(ProbabilitySolver.class);
-        }
-        gameFrame.setSolvers(solvers);
+    public JCheckBoxMenuItem getSinglePointCb() {
+        return singlePointCb;
     }
+
+    public JCheckBoxMenuItem getPseudoBooleanCb() {
+        return pseudoBooleanCb;
+    }
+
+    public JCheckBoxMenuItem getProbabilityCb() {
+        return probabilityCb;
+    }
+
+    public JCheckBoxMenuItem getStrategyCb() {
+        return strategyCb;
+    }
+
 }

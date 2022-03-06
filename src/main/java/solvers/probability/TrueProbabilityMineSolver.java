@@ -1,10 +1,15 @@
-package main.java.solvers;
+package main.java.solvers.probability;
 
 import com.google.common.math.BigIntegerMath;
-import main.java.Cell;
-import main.java.CellState;
+import main.java.game.Cell;
+import main.java.game.CellState;
+import main.java.solvers.constraints.IPBConstraintGenerator;
+import main.java.solvers.constraints.PBConstraintGeneratorOpenCells;
+import main.java.solvers.constraints.PBConstraintGeneratorSea;
+import main.java.solvers.SolverUtil;
 import org.apache.commons.math3.fraction.BigFraction;
 import org.sat4j.core.VecInt;
+import org.sat4j.pb.SolverFactory;
 import org.sat4j.pb.core.PBSolver;
 import org.sat4j.specs.ContradictionException;
 import org.sat4j.specs.IVecInt;
@@ -14,13 +19,21 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class ProbabilitySolver extends MyPBSolver {
+public class TrueProbabilityMineSolver implements IProbabilityMineSolver {
 
-    public ProbabilitySolver(Cell[][] cells, int width, int height, int mines) {
-        super(cells, width, height, mines);
+    private final Cell[][] cells;
+    private final int width;
+    private final int height;
+    private final int mines;
+
+    public TrueProbabilityMineSolver(Cell[][] cells, int width, int height, int mines) {
+        this.cells = cells;
+        this.width = width;
+        this.height = height;
+        this.mines = mines;
     }
 
-    public Cell getBestCell() {
+    public Cell getBestSafeProbabilityCell() {
         var probabilities = getProbabilities();
         List<Cell> lowestProbCells = new ArrayList<>();
         BigFraction bestProb = BigFraction.ONE;
@@ -42,14 +55,14 @@ public class ProbabilitySolver extends MyPBSolver {
         }
 
         Cell bestStrategicCell = lowestProbCells.get(0);
-        int leastUnknownNeighbours = (int) getNeighbours(bestStrategicCell.getX(), bestStrategicCell.getY())
+        int leastUnknownNeighbours = (int) SolverUtil.getNeighbours(cells, bestStrategicCell.getX(), bestStrategicCell.getY())
                 .stream()
                 .filter(c -> c.getState() == CellState.CLOSED)
                 .count();
 
         for (int i = 1; i < lowestProbCells.size(); i++) {
             Cell cell = lowestProbCells.get(i);
-            int unknownNeighbours = (int) getNeighbours(cell.getX(), cell.getY())
+            int unknownNeighbours = (int) SolverUtil.getNeighbours(cells, cell.getX(), cell.getY())
                     .stream()
                     .filter(c -> c.getState() == CellState.CLOSED)
                     .count();
@@ -61,44 +74,34 @@ public class ProbabilitySolver extends MyPBSolver {
         return bestStrategicCell;
     }
 
-    @Override
-    protected void addBoardConstraint(PBSolver solver)
-            throws ContradictionException {
-        int seaSize = getSeaCells().size();
-        int noOfLits = Integer.toBinaryString(seaSize).length();
-        IVecInt lits = new VecInt();
-        IVecInt coeffs = new VecInt();
-        for (int i = 0; i < noOfLits; i++) {
-            int square = (int) Math.pow(2, i);
-            lits.push(encodeLit(i));
-            coeffs.push(square);
-        }
-        solver.addAtMost(lits, coeffs, seaSize);
-
-        for (Cell cell : getClosedShoreCells()) {
-            lits.push(encodeCellId(cell));
-            coeffs.push(1);
-        }
-        solver.addAtMost(lits, coeffs, mines);
-        solver.addAtLeast(lits, coeffs, mines);
-    }
-
     public Map<Cell, BigFraction> getProbabilities() {
         Map<Cell, BigInteger> cellMineCount = new HashMap<>();
         Map<Cell, BigFraction> probs = new HashMap<>();
 
         var totalModels = BigInteger.ZERO;
         var totalSeaModels = BigFraction.ZERO;
-        var seaSize = getSeaCells().size();
+        var seaSize = SolverUtil.getSeaCells(cells).size();
 
-        PBSolver solver = generateBaseConstraints();
+        PBSolver solver = SolverFactory.newDefault();
+        List<IPBConstraintGenerator> constraintGenerators = List.of(
+                new PBConstraintGeneratorSea(),
+                new PBConstraintGeneratorOpenCells()
+        );
+
+        for (var constraintGenerator : constraintGenerators) {
+            try {
+                constraintGenerator.generate(solver, cells, width, height, mines);
+            } catch (ContradictionException e) {
+                e.printStackTrace();
+            }
+        }
 
         try {
             while (solver.isSatisfiable()) {
                 int[] model = solver.model();
                 List<Cell> modelShoreMines = Arrays.stream(model)
                         .filter(i -> i >= 0)
-                        .mapToObj(this::decodeCellId)
+                        .mapToObj(id -> SolverUtil.decodeCellId(cells, id, height, width))
                         .filter(Optional::isPresent)
                         .map(Optional::get)
                         .collect(Collectors.toList());
@@ -136,14 +139,17 @@ public class ProbabilitySolver extends MyPBSolver {
             e.printStackTrace();
         }
 
+        // need to make sure that solver will get garbage collected
+        // https://gitlab.ow2.org/sat4j/sat4j/-/issues/55
         solver.reset();
+        solver = null;
 
         if (seaSize > 0) {
             BigFraction seaProb = totalSeaModels.divide(totalModels).reduce();
-            getSeaCells().forEach(cell -> probs.put(cell, seaProb));
+            SolverUtil.getSeaCells(cells).forEach(cell -> probs.put(cell, seaProb));
         }
 
-        for (Cell cell : getClosedShoreCells()) {
+        for (Cell cell : SolverUtil.getClosedShoreCells(cells)) {
             BigInteger currentCellMineCount = cellMineCount.getOrDefault(cell, BigInteger.ZERO);
             probs.put(cell, new BigFraction(currentCellMineCount, totalModels).reduce());
         }

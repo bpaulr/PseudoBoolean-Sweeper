@@ -1,7 +1,10 @@
 package main.java.gui;
 
-import main.java.*;
-import main.java.solvers.ProbabilitySolver;
+import main.java.game.Cell;
+import main.java.game.CellState;
+import main.java.game.GameState;
+import main.java.game.MineSweeper;
+import main.java.solvers.probability.TrueProbabilityMineSolver;
 import org.apache.commons.math3.fraction.BigFraction;
 
 import javax.swing.*;
@@ -18,7 +21,7 @@ public class BoardPanel extends JPanel {
 
     private static final Color[] HEAT_MAP_COLOURS = {
             new Color(202, 250, 162),
-            new Color(70, 179, 70),
+            new Color(106, 252, 101),
             new Color(255, 248, 150),
             new Color(255, 127, 127),
             new Color(247, 76, 76),
@@ -80,7 +83,7 @@ public class BoardPanel extends JPanel {
                 button.setEnabled(false);
             });
             if (showProbabilities) {
-                showHeatMap(new ProbabilitySolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()).getProbabilities());
+                showHeatMap(new TrueProbabilityMineSolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()).getProbabilities());
             }
         }
     }
@@ -116,7 +119,7 @@ public class BoardPanel extends JPanel {
         // Todo: could speed up visualisation if all 0% cells were selected first
         //  before redoing heatmap
         if (showProbabilities && game.getState() == GameState.RUNNING) {
-            showHeatMap(new ProbabilitySolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()).getProbabilities());
+            showHeatMap(new TrueProbabilityMineSolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()).getProbabilities());
         }
     }
 
@@ -258,7 +261,9 @@ public class BoardPanel extends JPanel {
     public void setShowProbabilities(boolean showProbabilities) {
         this.showProbabilities = showProbabilities;
         if (showProbabilities) {
-            showHeatMap(new ProbabilitySolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()).getProbabilities());
+            var solver = new TrueProbabilityMineSolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines());
+            var probs = solver.getProbabilities();
+            showHeatMap(probs);
         } else {
             normaliseAllCellButtons();
         }
@@ -303,7 +308,7 @@ public class BoardPanel extends JPanel {
     }
 
     private void setCellHeat(CellButton button, BigFraction intensity) {
-        Color colour = Color.WHITE;
+        Color colour = Color.CYAN;  // colour for 0% mine
         if (intensity.compareTo(BigFraction.ZERO) > 0) {
             for (int i = 0; i < HEAT_MAP_COLOURS.length; i++) {
                 colour = HEAT_MAP_COLOURS[i];

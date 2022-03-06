@@ -1,6 +1,6 @@
 package main.java.gui;
 
-import main.java.GameState;
+import main.java.game.GameState;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

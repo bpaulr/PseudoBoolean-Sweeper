@@ -1,10 +1,10 @@
-package main.java.sims;
+package main.java.simulation;
 
-import main.java.Cell;
-import main.java.CellState;
-import main.java.GameState;
-import main.java.MineSweeper;
-import main.java.solvers.Solver;
+import main.java.game.Cell;
+import main.java.game.CellState;
+import main.java.game.GameState;
+import main.java.game.MineSweeper;
+import main.java.solvers.constant.IConstantMineSolver;
 
 import java.util.Map;
 import java.util.Random;
@@ -12,11 +12,11 @@ import java.util.Random;
 public class GamePlayer {
 
     private final MineSweeper game;
-    private final Solver solver;
+    private final IConstantMineSolver solver;
     private double startTime;
     private double endTime;
 
-    public GamePlayer(MineSweeper game, Solver solver) {
+    public GamePlayer(MineSweeper game, IConstantMineSolver solver) {
         this.game = game;
         this.solver = solver;
     }
@@ -36,10 +36,7 @@ public class GamePlayer {
             for (Map.Entry<Cell, Boolean> pair : known.entrySet()) {
                 Cell cell = pair.getKey();
                 if (pair.getValue()) {
-                    if (cell.getState() == CellState.CLOSED) {
-                        cell.setState(CellState.FLAGGED);
-                        change = true;
-                    }
+
                 } else {
                     if (cell.getState() == CellState.CLOSED) {
                         game.openCell(cell.getX(), cell.getY());

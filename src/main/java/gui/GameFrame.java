@@ -1,20 +1,22 @@
 package main.java.gui;
 
-import main.java.MineSweeper;
-import main.java.SolverSwingWorker;
-import main.java.solvers.MyPBSolver;
-import main.java.solvers.SinglePointSolver;
-import main.java.solvers.Solver;
+import main.java.game.MineSweeper;
+import main.java.solvers.constant.IConstantMineSolver;
+import main.java.solvers.probability.IProbabilityMineSolver;
+import main.java.solvers.probability.TrueProbabilityMineSolver;
+import main.java.solvers.strategic.IStrategicSolver;
+import main.java.solvers.constant.PBMineSolver;
+import main.java.solvers.constant.SinglePointMineSolver;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class GameFrame extends JFrame {
 
-    private final List<Class> solvers;
     private final GameStatsPanel gameStats;
     private final JButton resetBtn;
     private final JButton hintBtn;
@@ -23,6 +25,7 @@ public class GameFrame extends JFrame {
     private final JButton stopBtn;
     private final JCheckBox probabilityCheckBox;
     private final List<JComponent> disableComponents;
+    private final GameMenuBar menuBar;
     // This game reference is passed around the gui a lot
     // not great programming but it will do
     private MineSweeper game;
@@ -39,6 +42,7 @@ public class GameFrame extends JFrame {
         this.solveBtn = new JButton("Solve");
         this.stopBtn = new JButton("Stop");
         this.probabilityCheckBox = new JCheckBox("Probabilities");
+        this.menuBar = new GameMenuBar(this);
         disableComponents = List.of(
                 resetBtn,
                 hintBtn,
@@ -46,13 +50,6 @@ public class GameFrame extends JFrame {
                 solveBtn,
                 probabilityCheckBox
         );
-        solvers = new ArrayList<>();
-        solvers.add(SinglePointSolver.class);
-    }
-
-    public void setSolvers(List<Class> solvers) {
-        this.solvers.clear();
-        this.solvers.addAll(solvers);
     }
 
     public void setGame(MineSweeper newGame) {
@@ -73,10 +70,11 @@ public class GameFrame extends JFrame {
         this.pack();
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
         this.setLocation(dim.width / 2 - getSize().width / 2, dim.height / 2 - getSize().height / 2);
+        this.setJMenuBar(this.menuBar);
     }
 
     public void buildGUI() {
-        this.setJMenuBar(new GameMenuBar(this));
+        this.setJMenuBar(this.menuBar);
 
         addButtonListeners();
 
@@ -112,7 +110,7 @@ public class GameFrame extends JFrame {
         hintBtn.addActionListener(e -> {
             if (!boardPanel.knowsHints()) {
                 // just use a pb solver rather than incremental solvers
-                Solver p = new MyPBSolver(game.getCells(), game.getWidth(),
+                IConstantMineSolver p = new PBMineSolver(game.getCells(), game.getWidth(),
                         game.getHeight(), game.getMines());
                 boardPanel.setHintCells(p.getKnownCells());
             }
@@ -120,24 +118,14 @@ public class GameFrame extends JFrame {
         });
 
         assistBtn.addActionListener(e -> {
-            this.worker = new SolverSwingWorker.Builder(game)
-                    .disableComponents(disableComponents)
-                    .withBoardPanel(boardPanel)
-                    .withSolvers(solvers)
-                    .setLoop(false)
-                    .build();
+            configureSolverWorker(false);
             boardPanel.setEnabled(false);
             disableComponents.forEach(component -> component.setEnabled(false));
             this.worker.execute();
         });
 
         solveBtn.addActionListener(e -> {
-            this.worker = new SolverSwingWorker.Builder(game)
-                    .disableComponents(disableComponents)
-                    .withBoardPanel(boardPanel)
-                    .withSolvers(solvers)
-                    .setLoop(true)
-                    .build();
+            configureSolverWorker(true);
             boardPanel.setEnabled(false);
             disableComponents.forEach(component -> component.setEnabled(false));
             this.worker.execute();
@@ -156,6 +144,46 @@ public class GameFrame extends JFrame {
         });
 
         probabilityCheckBox.addActionListener(e -> boardPanel.setShowProbabilities(probabilityCheckBox.isSelected()));
+    }
+
+    private void configureSolverWorker(boolean loop) {
+        List<IConstantMineSolver> constantSolvers = new ArrayList<>();
+        Optional<IProbabilityMineSolver> probabilitySolver = Optional.empty();
+        Optional<IStrategicSolver> strategicSolver = Optional.empty();
+        loadConstantSolvers(constantSolvers);
+
+        if (menuBar.getProbabilityCb().isSelected()) {
+            probabilitySolver = Optional.of(new TrueProbabilityMineSolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()));
+        }
+        if (menuBar.getStrategyCb().isSelected()) {
+            // ToDo: implement some strategic solvers...
+        }
+
+        this.worker = buildSolverWorker(constantSolvers, probabilitySolver, strategicSolver, loop);
+    }
+
+    private void loadConstantSolvers(List<IConstantMineSolver> constantSolvers) {
+        if (menuBar.getSinglePointCb().isSelected()) {
+            constantSolvers.add(new SinglePointMineSolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()));
+        }
+        if (menuBar.getPseudoBooleanCb().isSelected()) {
+            constantSolvers.add(new PBMineSolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()));
+        }
+    }
+
+    private SolverSwingWorker buildSolverWorker(
+            List<IConstantMineSolver> constantSolvers,
+            Optional<IProbabilityMineSolver> probabilitySolver,
+            Optional<IStrategicSolver> strategicSolver,
+            boolean loop) {
+        return new SolverSwingWorker.SwingWorkerBuilder(game)
+                .disableComponents(disableComponents)
+                .withBoardPanel(boardPanel)
+                .withConstantSolvers(constantSolvers)
+                .withProbabilitySolver(probabilitySolver)
+                .withStrategicSolver(strategicSolver)
+                .setLoop(loop)
+                .build();
     }
 
 }
