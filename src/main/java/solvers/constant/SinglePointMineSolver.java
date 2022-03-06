@@ -66,7 +66,7 @@ public class SinglePointMineSolver implements IConstantMineSolver {
 
     private boolean hasSinglePointSafePattern(Cell cell, Set<Cell> knownMines) {
         List<Cell> neighbours = SolverUtil.getNeighbours(cells, cell.getX(), cell.getY());
-        int numOfKnownMines = (int) neighbours.stream().filter(c -> knownMines.contains(c)).count();
+        int numOfKnownMines = (int) neighbours.stream().filter(knownMines::contains).count();
         return cell.getNumber() == numOfKnownMines;
     }
 
