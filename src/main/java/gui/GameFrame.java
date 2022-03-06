@@ -144,6 +144,7 @@ public class GameFrame extends JFrame {
             resetGUI();
         });
 
+        probabilityCheckBox.setToolTipText("WARNING: Clicking this option may block the application due to intensive calculation.");
         probabilityCheckBox.addActionListener(e -> boardPanel.setShowProbabilities(probabilityCheckBox.isSelected()));
     }
 
