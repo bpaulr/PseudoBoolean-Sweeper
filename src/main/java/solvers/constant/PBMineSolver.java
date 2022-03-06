@@ -1,10 +1,10 @@
 package main.java.solvers.constant;
 
 import main.java.game.Cell;
+import main.java.solvers.SolverUtil;
+import main.java.solvers.constraints.IPBConstraintGenerator;
 import main.java.solvers.constraints.PBConstraintGeneratorBoard;
 import main.java.solvers.constraints.PBConstraintGeneratorOpenCells;
-import main.java.solvers.constraints.IPBConstraintGenerator;
-import main.java.solvers.SolverUtil;
 import org.sat4j.core.VecInt;
 import org.sat4j.pb.SolverFactory;
 import org.sat4j.pb.core.PBSolver;
@@ -13,11 +13,12 @@ import org.sat4j.specs.IConstr;
 import org.sat4j.specs.IVecInt;
 import org.sat4j.specs.TimeoutException;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public class PBMineSolver implements IConstantMineSolver {
-
-    public final List<String> constraintLog;
 
     private final Cell[][] cells;
     private final int width;
@@ -29,7 +30,6 @@ public class PBMineSolver implements IConstantMineSolver {
         this.width = width;
         this.height = height;
         this.mines = mines;
-        constraintLog = new ArrayList<>();
     }
 
     public Map<Cell, Boolean> getKnownCells() {
@@ -37,31 +37,17 @@ public class PBMineSolver implements IConstantMineSolver {
 
         PBSolver solver = SolverFactory.newDefault();
         List<IPBConstraintGenerator> constraintGenerators = List.of(
-            new PBConstraintGeneratorBoard(),
-            new PBConstraintGeneratorOpenCells()
+                new PBConstraintGeneratorBoard(),
+                new PBConstraintGeneratorOpenCells()
         );
 
         for (var constraintGenerator : constraintGenerators) {
-            try {
-                constraintGenerator.generate(solver, cells, width, height, mines);
-            } catch (ContradictionException e) {
-                e.printStackTrace();
-            }
+            constraintGenerator.generate(solver, cells, width, height, mines);
         }
 
         List<Cell> shoreCells = SolverUtil.getClosedShoreCells(cells);
 
-        // Test all shore cells
-        for (Cell cell : shoreCells) {
-            for (int weight = 0; weight <= 1; weight++) {
-                Optional<Boolean> isMine =
-                        checkCellWithWeight(solver, cell, weight);
-                if (isMine.isPresent()) {
-                    results.put(cell, isMine.get());
-                    break;
-                }
-            }
-        }
+        testShoreCells(results, solver, shoreCells);
 
         // Test a sea cell
         List<Cell> seaCells = SolverUtil.getSeaCells(cells);
@@ -87,22 +73,35 @@ public class PBMineSolver implements IConstantMineSolver {
         return results;
     }
 
+    private void testShoreCells(Map<Cell, Boolean> results, PBSolver solver, List<Cell> shoreCells) {
+        // Test all shore cells
+        for (Cell cell : shoreCells) {
+            for (int weight = 0; weight <= 1; weight++) {
+                Optional<Boolean> isMine =
+                        checkCellWithWeight(solver, cell, weight);
+                if (isMine.isPresent()) {
+                    results.put(cell, isMine.get());
+                    break;
+                }
+            }
+        }
+    }
 
 
     private Optional<Boolean> checkCellWithWeight(PBSolver solver, final Cell cell, final int weight) {
-        IVecInt lit = new VecInt();
-        IVecInt coeff = new VecInt();
-        IConstr atMostConstr = null;
-        IConstr atLeastConstr = null;
+        IVecInt literals = new VecInt();
+        IVecInt coefficients = new VecInt();
+        IConstr atMostConstraint = null;
+        IConstr atLeastConstraint = null;
 
         Optional<Boolean> result = Optional.empty();
 
-        lit.push(SolverUtil.encodeCellId(cell, width));
-        coeff.push(1);
+        literals.push(SolverUtil.encodeCellId(cell, width));
+        coefficients.push(1);
 
         try {
-            atMostConstr = solver.addAtMost(lit, coeff, weight);
-            atLeastConstr = solver.addAtLeast(lit, coeff, weight);
+            atMostConstraint = solver.addAtMost(literals, coefficients, weight);
+            atLeastConstraint = solver.addAtLeast(literals, coefficients, weight);
             if (!solver.isSatisfiable()) {
                 boolean isMine = weight != 1;
                 result = Optional.of(isMine);
@@ -112,11 +111,11 @@ public class PBMineSolver implements IConstantMineSolver {
         } catch (TimeoutException t) {
             t.printStackTrace();
         }
-        if (atMostConstr != null) {
-            solver.removeConstr(atMostConstr);
+        if (atMostConstraint != null) {
+            solver.removeConstr(atMostConstraint);
         }
-        if (atLeastConstr != null) {
-            solver.removeConstr(atLeastConstr);
+        if (atLeastConstraint != null) {
+            solver.removeConstr(atLeastConstraint);
         }
 
         return result;

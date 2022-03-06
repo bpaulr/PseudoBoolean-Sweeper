@@ -76,11 +76,11 @@ public class TrueProbabilityMineSolver implements IProbabilityMineSolver {
 
     public Map<Cell, BigFraction> getProbabilities() {
         Map<Cell, BigInteger> cellMineCount = new HashMap<>();
-        Map<Cell, BigFraction> probs = new HashMap<>();
+        Map<Cell, BigFraction> probabilities = new HashMap<>();
 
-        var totalModels = BigInteger.ZERO;
-        var totalSeaModels = BigFraction.ZERO;
-        var seaSize = SolverUtil.getSeaCells(cells).size();
+        BigInteger totalModels = BigInteger.ZERO;
+        BigFraction totalSeaModels = BigFraction.ZERO;
+        int seaSize = SolverUtil.getSeaCells(cells).size();
 
         PBSolver solver = SolverFactory.newDefault();
         List<IPBConstraintGenerator> constraintGenerators = List.of(
@@ -89,51 +89,30 @@ public class TrueProbabilityMineSolver implements IProbabilityMineSolver {
         );
 
         for (var constraintGenerator : constraintGenerators) {
-            try {
-                constraintGenerator.generate(solver, cells, width, height, mines);
-            } catch (ContradictionException e) {
-                e.printStackTrace();
-            }
+            constraintGenerator.generate(solver, cells, width, height, mines);
         }
 
         try {
             while (solver.isSatisfiable()) {
                 int[] model = solver.model();
-                List<Cell> modelShoreMines = Arrays.stream(model)
-                        .filter(i -> i >= 0)
-                        .mapToObj(id -> SolverUtil.decodeCellId(cells, id, height, width))
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .collect(Collectors.toList());
+
+                List<Cell> modelShoreMines = convertModelToCells(model);
 
                 int remainingMinesInModel = mines - modelShoreMines.size();
 
-                BigInteger totalPossibleModels = seaSize > 0 ?
-                        BigIntegerMath.binomial(seaSize, remainingMinesInModel) :
-                        BigInteger.ONE; // One to include the current model
+                BigInteger totalPossibleModels = calculateAllPossibleModels(seaSize, remainingMinesInModel);
 
                 totalModels = totalModels.add(totalPossibleModels);
 
-                // update mine counts
-                for (Cell cell : modelShoreMines) {
-                    BigInteger currentCellMineCount = cellMineCount.getOrDefault(cell, BigInteger.ZERO);
-                    BigInteger newCellMineCount = currentCellMineCount.add(totalPossibleModels);
-                    cellMineCount.put(cell, newCellMineCount);
-                }
+                updateAllMineCounts(cellMineCount, modelShoreMines, totalPossibleModels);
 
-                // update sea probability
-                BigFraction currentModelSeaProb = seaSize > 0 ?
-                        new BigFraction(remainingMinesInModel, seaSize) :
-                        BigFraction.ZERO;
+                BigFraction currentModelSeaProbability = calculateSeaProbability(seaSize, remainingMinesInModel);
 
-                totalSeaModels = totalSeaModels.add(currentModelSeaProb.multiply(totalPossibleModels));
+                totalSeaModels = totalSeaModels.add(
+                        currentModelSeaProbability.multiply(totalPossibleModels)
+                );
 
-                // Remove current solution from possible solutions
-                for (int i = 0; i < model.length; i++) {
-                    model[i] *= -1;
-                }
-                IVecInt block = new VecInt(model);
-                solver.addBlockingClause(block);
+                blockModelInSolver(solver, model);
             }
         } catch (TimeoutException | ContradictionException e) {
             e.printStackTrace();
@@ -145,15 +124,65 @@ public class TrueProbabilityMineSolver implements IProbabilityMineSolver {
         solver = null;
 
         if (seaSize > 0) {
-            BigFraction seaProb = totalSeaModels.divide(totalModels).reduce();
-            SolverUtil.getSeaCells(cells).forEach(cell -> probs.put(cell, seaProb));
+            updateSeaCellProbabilities(probabilities, totalModels, totalSeaModels);
         }
 
         for (Cell cell : SolverUtil.getClosedShoreCells(cells)) {
-            BigInteger currentCellMineCount = cellMineCount.getOrDefault(cell, BigInteger.ZERO);
-            probs.put(cell, new BigFraction(currentCellMineCount, totalModels).reduce());
+            updateShoreCellProbabilities(cellMineCount, probabilities, totalModels, cell);
         }
 
-        return probs;
+        return probabilities;
+    }
+
+    private void updateShoreCellProbabilities(Map<Cell, BigInteger> cellMineCount, Map<Cell, BigFraction> probabilities, BigInteger totalModels, Cell cell) {
+        BigInteger currentCellMineCount = cellMineCount.getOrDefault(cell, BigInteger.ZERO);
+        probabilities.put(cell, new BigFraction(currentCellMineCount, totalModels).reduce());
+    }
+
+    private void updateSeaCellProbabilities(Map<Cell, BigFraction> probabilities, BigInteger totalModels, BigFraction totalSeaModels) {
+        BigFraction seaProb = totalSeaModels.divide(totalModels).reduce();
+        SolverUtil.getSeaCells(cells).forEach(cell -> probabilities.put(cell, seaProb));
+    }
+
+    private BigFraction calculateSeaProbability(int seaSize, int remainingMinesInModel) {
+        BigFraction currentModelSeaProb = seaSize > 0 ?
+                new BigFraction(remainingMinesInModel, seaSize) :
+                BigFraction.ZERO;
+        return currentModelSeaProb;
+    }
+
+    private BigInteger calculateAllPossibleModels(int seaSize, int remainingMinesInModel) {
+        BigInteger totalPossibleModels = seaSize > 0 ?
+                BigIntegerMath.binomial(seaSize, remainingMinesInModel) :
+                BigInteger.ONE; // One to include the current model
+        return totalPossibleModels;
+    }
+
+    private List<Cell> convertModelToCells(int[] model) {
+        List<Cell> modelShoreMines = Arrays.stream(model)
+                .filter(i -> i >= 0)  // only consider literals that are for cells
+                .mapToObj(id -> SolverUtil.decodeCellId(cells, id, height, width))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+        return modelShoreMines;
+    }
+
+    private void updateAllMineCounts(Map<Cell, BigInteger> cellMineCount, List<Cell> modelShoreMines, BigInteger totalPossibleModels) {
+        // update mine counts
+        for (Cell cell : modelShoreMines) {
+            BigInteger currentCellMineCount = cellMineCount.getOrDefault(cell, BigInteger.ZERO);
+            BigInteger newCellMineCount = currentCellMineCount.add(totalPossibleModels);
+            cellMineCount.put(cell, newCellMineCount);
+        }
+    }
+
+    private void blockModelInSolver(PBSolver solver, int[] model) throws ContradictionException {
+        // Remove current solution from possible solutions
+        for (int i = 0; i < model.length; i++) {
+            model[i] *= -1;
+        }
+        IVecInt block = new VecInt(model);
+        solver.addBlockingClause(block);
     }
 }

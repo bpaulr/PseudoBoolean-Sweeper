@@ -11,23 +11,26 @@ public class PBConstraintGeneratorBoard implements IPBConstraintGenerator {
 
 
     @Override
-    public void generate(PBSolver solver, Cell[][] cells, int width, int height, int mines) throws ContradictionException {
-        IVecInt lits = new VecInt();
-        IVecInt coeffs = new VecInt();
+    public void generate(PBSolver solver, Cell[][] cells, int width, int height, int mines) {
+        IVecInt literals = new VecInt();
+        IVecInt coefficients = new VecInt();
 
-        // Constraint that sum of all cells must be the no.
-        // of mines present on the board
+        // all cells must sum to the no of mines present on the board
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
                 Cell current = cells[i][j];
-                lits.push(SolverUtil.encodeCellId(current, width));
-                coeffs.push(1);
+                literals.push(SolverUtil.encodeCellId(current, width));
+                coefficients.push(1);
             }
         }
-        solver.addAtMost(lits, coeffs, mines);
-        solver.addAtLeast(lits, coeffs, mines);
-        lits.clear();
-        coeffs.clear();
+        try {
+            solver.addAtMost(literals, coefficients, mines);
+            solver.addAtLeast(literals, coefficients, mines);
+        } catch (ContradictionException e) {
+            e.printStackTrace();
+        }
+        literals.clear();
+        coefficients.clear();
     }
 
 }

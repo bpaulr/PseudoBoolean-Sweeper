@@ -49,31 +49,33 @@ public class SinglePointMineSolver implements IConstantMineSolver {
                 .filter(cell -> hasSinglePointSafePattern(cell, knownMines))
                 .collect(Collectors.toList());
 
-        return getNeighbouringClosedCells(hasSurroundingSafeCells).stream().filter(cell -> !knownMines.contains(cell)).collect(Collectors.toList());
+        return getNeighbouringClosedCells(hasSurroundingSafeCells).stream()
+                .filter(cell -> !knownMines.contains(cell))
+                .collect(Collectors.toList());
     }
 
     private List<Cell> getNeighbouringClosedCells(List<Cell> knownCells) {
         Set<Cell> safeCells = new HashSet<>(); // filter out duplicates
         for (Cell cell : knownCells) {
-            safeCells.addAll(
-                    SolverUtil.getNeighbours(cells, cell.getX(), cell.getY()).stream()
-                            .filter(c -> c.getState() != CellState.OPEN)
-                            .collect(Collectors.toList())
-            );
+            List<Cell> closedNeighbours = SolverUtil.getNeighbours(cells, cell.getX(), cell.getY()).stream()
+                    .filter(c -> c.getState() != CellState.OPEN)
+                    .collect(Collectors.toList());
+
+            safeCells.addAll(closedNeighbours);
         }
         return new ArrayList<>(safeCells);
     }
 
     private boolean hasSinglePointSafePattern(Cell cell, Set<Cell> knownMines) {
         List<Cell> neighbours = SolverUtil.getNeighbours(cells, cell.getX(), cell.getY());
-        int numOfKnownMines = (int) neighbours.stream().filter(knownMines::contains).count();
-        return cell.getNumber() == numOfKnownMines;
+        int numberOfKnownMines = (int) neighbours.stream().filter(knownMines::contains).count();
+        return cell.getNumber() == numberOfKnownMines;
     }
 
     private boolean hasSinglePointMinePattern(Cell cell) {
-        int closedCount = (int) SolverUtil.getNeighbours(cells, cell.getX(), cell.getY()).stream()
+        int numberOfClosedNeighbouringCells = (int) SolverUtil.getNeighbours(cells, cell.getX(), cell.getY()).stream()
                 .filter(c -> c.getState() != CellState.OPEN)
                 .count();
-        return cell.getNumber() == closedCount;
+        return cell.getNumber() == numberOfClosedNeighbouringCells;
     }
 }

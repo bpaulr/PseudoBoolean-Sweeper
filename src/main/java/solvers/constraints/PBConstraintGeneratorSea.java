@@ -11,24 +11,30 @@ public class PBConstraintGeneratorSea implements IPBConstraintGenerator {
 
 
     @Override
-    public void generate(PBSolver solver, Cell[][] cells, int width, int height, int mines) throws ContradictionException {
+    public void generate(PBSolver solver, Cell[][] cells, int width, int height, int mines) {
         int seaSize = SolverUtil.getSeaCells(cells).size();
-        int noOfLits = Integer.toBinaryString(seaSize).length();
-        IVecInt lits = new VecInt();
-        IVecInt coeffs = new VecInt();
-        for (int i = 0; i < noOfLits; i++) {
-            int square = (int) Math.pow(2, i);
-            lits.push(SolverUtil.encodeLit(i, height, width));
-            coeffs.push(square);
-        }
-        solver.addAtMost(lits, coeffs, seaSize);
+        int noOfLiteralsNeeded = Integer.toBinaryString(seaSize).length();
+        IVecInt literals = new VecInt();
+        IVecInt coefficients = new VecInt();
 
-        for (Cell cell : SolverUtil.getClosedShoreCells(cells)) {
-            lits.push(SolverUtil.encodeCellId(cell, width));
-            coeffs.push(1);
+        // binary format so any number of combinations in sea can be figured out.
+        for (int i = 0; i < noOfLiteralsNeeded; i++) {
+            int square = (int) Math.pow(2, i);
+            literals.push(SolverUtil.encodeLit(i, height, width));
+            coefficients.push(square);
         }
-        solver.addAtMost(lits, coeffs, mines);
-        solver.addAtLeast(lits, coeffs, mines);
+
+        try {
+            solver.addAtMost(literals, coefficients, seaSize);
+            for (Cell cell : SolverUtil.getClosedShoreCells(cells)) {
+                literals.push(SolverUtil.encodeCellId(cell, width));
+                coefficients.push(1);
+            }
+            solver.addAtMost(literals, coefficients, mines);
+            solver.addAtLeast(literals, coefficients, mines);
+        } catch (ContradictionException e) {
+            e.printStackTrace();
+        }
     }
 
 }

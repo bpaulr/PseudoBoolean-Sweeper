@@ -13,31 +13,41 @@ public class PBConstraintGeneratorOpenCells implements IPBConstraintGenerator {
 
 
     @Override
-    public void generate(PBSolver solver, Cell[][] cells, int width, int height, int mines) throws ContradictionException {
-        IVecInt lits = new VecInt();
-        IVecInt coeffs = new VecInt();
+    public void generate(PBSolver solver, Cell[][] cells, int width, int height, int mines) {
+        IVecInt literals = new VecInt();
+        IVecInt coefficients = new VecInt();
 
         List<Cell> openCells = SolverUtil.getLandCells(cells);
 
         for (Cell cell : openCells) {
-            lits.push(SolverUtil.encodeCellId(cell, width));
-            coeffs.push(1);
-            solver.addAtMost(lits, coeffs, 0);
-            solver.addAtLeast(lits, coeffs, 0);
-            lits.clear();
-            coeffs.clear();
+            literals.push(SolverUtil.encodeCellId(cell, width));
+            coefficients.push(1);
+            try {
+                // every cell that is open can not be a mine
+                solver.addAtMost(literals, coefficients, 0);
+                solver.addAtLeast(literals, coefficients, 0);
 
-            // Normal constraint
-            List<Cell> neighbours = SolverUtil.getNeighbours(cells, cell.getX(), cell.getY());
-            for (Cell c : neighbours) {
-                lits.push(SolverUtil.encodeCellId(c, width));
-                coeffs.push(1);
+                literals.clear();
+                coefficients.clear();
+
+                addSurroundingCellsConstraint(solver, cells, width, literals, coefficients, cell);
+
+                literals.clear();
+                coefficients.clear();
+            } catch (ContradictionException e) {
+                e.printStackTrace();
             }
-            solver.addAtMost(lits, coeffs, cell.getNumber());
-            solver.addAtLeast(lits, coeffs, cell.getNumber());
-            lits.clear();
-            coeffs.clear();
         }
+    }
+
+    private void addSurroundingCellsConstraint(PBSolver solver, Cell[][] cells, int width, IVecInt literals, IVecInt coefficients, Cell cell) throws ContradictionException {
+        List<Cell> neighbours = SolverUtil.getNeighbours(cells, cell.getX(), cell.getY());
+        for (Cell c : neighbours) {
+            literals.push(SolverUtil.encodeCellId(c, width));
+            coefficients.push(1);
+        }
+        solver.addAtMost(literals, coefficients, cell.getNumber());
+        solver.addAtLeast(literals, coefficients, cell.getNumber());
     }
 
 }

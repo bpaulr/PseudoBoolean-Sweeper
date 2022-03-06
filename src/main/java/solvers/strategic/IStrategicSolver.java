@@ -2,8 +2,8 @@ package main.java.solvers.strategic;
 
 import main.java.game.Cell;
 
-import java.util.Map;
+import java.util.List;
 
 public interface IStrategicSolver {
-    Cell getBestMove(Map<Cell, Boolean> knownCells);
+    Cell getBestMove(List<Cell> closedCells);
 }
