@@ -42,7 +42,6 @@ public abstract class AbstractConstraintGenerator implements IPBConstraintGenera
             solver.addAtMost(literals, coefficients, degree);
         } catch (ContradictionException e) {
             solver.reset();
-            e.printStackTrace();
         }
         writeLog(literals, coefficients, "=", degree);
     }
