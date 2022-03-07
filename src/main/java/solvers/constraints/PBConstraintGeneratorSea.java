@@ -4,10 +4,9 @@ import main.java.game.Cell;
 import main.java.solvers.SolverUtil;
 import org.sat4j.core.VecInt;
 import org.sat4j.pb.core.PBSolver;
-import org.sat4j.specs.ContradictionException;
 import org.sat4j.specs.IVecInt;
 
-public class PBConstraintGeneratorSea implements IPBConstraintGenerator {
+public class PBConstraintGeneratorSea extends AbstractConstraintGenerator {
 
 
     @Override
@@ -24,17 +23,12 @@ public class PBConstraintGeneratorSea implements IPBConstraintGenerator {
             coefficients.push(square);
         }
 
-        try {
-            solver.addAtMost(literals, coefficients, seaSize);
-            for (Cell cell : SolverUtil.getClosedShoreCells(cells)) {
-                literals.push(SolverUtil.encodeCellId(cell, width));
-                coefficients.push(1);
-            }
-            solver.addAtMost(literals, coefficients, mines);
-            solver.addAtLeast(literals, coefficients, mines);
-        } catch (ContradictionException e) {
-            e.printStackTrace();
+        addAtMost(solver, literals, coefficients, seaSize);
+        for (Cell cell : SolverUtil.getClosedShoreCells(cells)) {
+            literals.push(SolverUtil.encodeCellId(cell, width));
+            coefficients.push(1);
         }
+        addExactly(solver, literals, coefficients, mines);
     }
-
 }
+

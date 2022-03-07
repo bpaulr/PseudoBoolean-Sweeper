@@ -2,7 +2,6 @@ package main.java.solvers.constraints;
 
 import main.java.game.Cell;
 import org.sat4j.pb.core.PBSolver;
-import org.sat4j.specs.ContradictionException;
 
 public interface IPBConstraintGenerator {
 

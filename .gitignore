@@ -10,3 +10,4 @@ bin/
 stale_outputs_checked
 out/
 META-INF/
+*.log

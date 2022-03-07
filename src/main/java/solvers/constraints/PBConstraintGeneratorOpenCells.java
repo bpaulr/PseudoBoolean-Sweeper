@@ -9,7 +9,7 @@ import org.sat4j.specs.IVecInt;
 
 import java.util.List;
 
-public class PBConstraintGeneratorOpenCells implements IPBConstraintGenerator {
+public class PBConstraintGeneratorOpenCells extends AbstractConstraintGenerator {
 
 
     @Override
@@ -24,8 +24,7 @@ public class PBConstraintGeneratorOpenCells implements IPBConstraintGenerator {
             coefficients.push(1);
             try {
                 // every cell that is open can not be a mine
-                solver.addAtMost(literals, coefficients, 0);
-                solver.addAtLeast(literals, coefficients, 0);
+                addExactly(solver, literals, coefficients, 0);
 
                 literals.clear();
                 coefficients.clear();
@@ -46,8 +45,7 @@ public class PBConstraintGeneratorOpenCells implements IPBConstraintGenerator {
             literals.push(SolverUtil.encodeCellId(c, width));
             coefficients.push(1);
         }
-        solver.addAtMost(literals, coefficients, cell.getNumber());
-        solver.addAtLeast(literals, coefficients, cell.getNumber());
+        addExactly(solver, literals, coefficients, cell.getNumber());
     }
 
 }
