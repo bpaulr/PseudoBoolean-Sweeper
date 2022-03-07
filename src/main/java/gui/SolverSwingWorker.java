@@ -4,14 +4,17 @@ import main.java.game.Cell;
 import main.java.game.CellState;
 import main.java.game.GameState;
 import main.java.game.MineSweeper;
+import main.java.solvers.SolverUtil;
 import main.java.solvers.constant.IConstantMineSolver;
 import main.java.solvers.probability.IProbabilityMineSolver;
 import main.java.solvers.strategic.IStrategicSolver;
 
 import javax.swing.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class SolverSwingWorker extends SwingWorker<Boolean, Boolean> {
 
@@ -88,23 +91,35 @@ public class SolverSwingWorker extends SwingWorker<Boolean, Boolean> {
     protected Boolean doInBackground() {
         while (this.running && game.getState() == GameState.RUNNING) {
             cycleConstantSolvers();
+            List<Cell> cellsToChooseFrom = new ArrayList<>();
             if (probabilitySolver.isPresent()) {
-                List<Cell> bestCells = probabilitySolver.get().getBestSafeProbabilityCells();
-                if (bestCells.isEmpty()) {
+                cellsToChooseFrom.addAll(probabilitySolver.get().getBestSafeProbabilityCells());
+                if (cellsToChooseFrom.isEmpty()) {
                     break;
                 }
-                Cell bestCell;
-                if (bestCells.size() == 1) {
-                    bestCell = bestCells.get(0);
-                } else if (strategicSolver.isPresent()) {
-                    bestCell = strategicSolver.get().getBestMove(bestCells);
-                } else {
-                    break;
+                if (cellsToChooseFrom.size() == 1) {
+                    Cell bestCell = cellsToChooseFrom.get(0);
+                    CellButton button = boardPanel.getButtonFromCell(bestCell);
+                    // the above calculation can take a long time to complete so,
+                    // it's safer to do what may seem as an "unnecessary" running
+                    // check again
+                    if (!this.running || game.getState() != GameState.RUNNING) {
+                        break;
+                    }
+                    boardPanel.selectButton(button, bestCell);
+                    if (!loop) {
+                        break;
+                    }
+                    continue;
                 }
+            }
+            if (strategicSolver.isPresent()) {
+                if (cellsToChooseFrom.isEmpty()) {
+                    List<Cell> closedCells = SolverUtil.filterCellStatesToStream(game.getCells(), CellState.CLOSED).collect(Collectors.toList());
+                    cellsToChooseFrom.addAll(closedCells);
+                }
+                Cell bestCell = strategicSolver.get().getBestMove(cellsToChooseFrom);
                 CellButton button = boardPanel.getButtonFromCell(bestCell);
-                // the above calculation can take a long time to complete so,
-                // it's safer to do what may seem as an "unnecessary" running
-                // check again
                 if (!this.running || game.getState() != GameState.RUNNING) {
                     break;
                 }
