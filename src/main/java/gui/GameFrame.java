@@ -7,6 +7,7 @@ import main.java.solvers.probability.TrueProbabilityMineSolver;
 import main.java.solvers.strategic.IStrategicSolver;
 import main.java.solvers.constant.PBMineSolver;
 import main.java.solvers.constant.SinglePointMineSolver;
+import main.java.solvers.strategic.LeastNeighboursSolver;
 
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
@@ -158,7 +159,7 @@ public class GameFrame extends JFrame {
             probabilitySolver = Optional.of(new TrueProbabilityMineSolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()));
         }
         if (menuBar.getStrategyCb().isSelected()) {
-            // ToDo: implement some strategic solvers...
+            strategicSolver = Optional.of(new LeastNeighboursSolver(game.getCells(), game.getWidth(), game.getHeight(), game.getMines()));
         }
 
         this.worker = buildSolverWorker(constantSolvers, probabilitySolver, strategicSolver, loop);

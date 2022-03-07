@@ -66,8 +66,7 @@ public class SolverSwingWorker extends SwingWorker<Boolean, Boolean> {
         return somethingChanged;
     }
 
-    @Override
-    protected Boolean doInBackground() {
+    private void cycleConstantSolvers() {
         for (int i = 0; i < constantSolvers.size(); i++) {
             if (!this.running || game.getState() != GameState.RUNNING) {
                 break;
@@ -79,15 +78,43 @@ public class SolverSwingWorker extends SwingWorker<Boolean, Boolean> {
                 if (!loop) {
                     break;
                 }
-                i = -1;
+                i = -1; // start from first solver again
                 continue;
             }
-            if (i == constantSolvers.size() - 1 && probabilitySolver.isPresent()) {
-                Cell bestCell = probabilitySolver.get().getBestSafeProbabilityCell();
+        }
+    }
+
+    @Override
+    protected Boolean doInBackground() {
+        while (this.running && game.getState() == GameState.RUNNING) {
+            cycleConstantSolvers();
+            if (probabilitySolver.isPresent()) {
+                List<Cell> bestCells = probabilitySolver.get().getBestSafeProbabilityCells();
+                if (bestCells.isEmpty()) {
+                    break;
+                }
+                Cell bestCell;
+                if (bestCells.size() == 1) {
+                    bestCell = bestCells.get(0);
+                } else if (strategicSolver.isPresent()) {
+                    bestCell = strategicSolver.get().getBestMove(bestCells);
+                } else {
+                    break;
+                }
                 CellButton button = boardPanel.getButtonFromCell(bestCell);
+                // the above calculation can take a long time to complete so,
+                // it's safer to do what may seem as an "unnecessary" running
+                // check again
+                if (!this.running || game.getState() != GameState.RUNNING) {
+                    break;
+                }
                 boardPanel.selectButton(button, bestCell);
-                i = -1;
+                if (!loop) {
+                    break;
+                }
+                continue;
             }
+            break;
         }
         boardPanel.setEnabled(true);
         disableComponents.forEach(component -> component.setEnabled(true));
@@ -96,7 +123,7 @@ public class SolverSwingWorker extends SwingWorker<Boolean, Boolean> {
 
     public static class SwingWorkerBuilder {
 
-        private MineSweeper game;
+        private final MineSweeper game;
         private List<JComponent> disableComponents;
         private BoardPanel board;
         private boolean loop;

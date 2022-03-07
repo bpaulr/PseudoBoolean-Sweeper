@@ -33,7 +33,7 @@ public class TrueProbabilityMineSolver implements IProbabilityMineSolver {
         this.mines = mines;
     }
 
-    public Cell getBestSafeProbabilityCell() {
+    public List<Cell> getBestSafeProbabilityCells() {
         var probabilities = getProbabilities();
         List<Cell> lowestProbCells = new ArrayList<>();
         BigFraction bestProb = BigFraction.ONE;
@@ -49,29 +49,7 @@ public class TrueProbabilityMineSolver implements IProbabilityMineSolver {
                 lowestProbCells.add(cell);
             }
         }
-
-        if (lowestProbCells.size() == 1) {
-            return lowestProbCells.get(0);
-        }
-
-        Cell bestStrategicCell = lowestProbCells.get(0);
-        int leastUnknownNeighbours = (int) SolverUtil.getNeighbours(cells, bestStrategicCell.getX(), bestStrategicCell.getY())
-                .stream()
-                .filter(c -> c.getState() == CellState.CLOSED)
-                .count();
-
-        for (int i = 1; i < lowestProbCells.size(); i++) {
-            Cell cell = lowestProbCells.get(i);
-            int unknownNeighbours = (int) SolverUtil.getNeighbours(cells, cell.getX(), cell.getY())
-                    .stream()
-                    .filter(c -> c.getState() == CellState.CLOSED)
-                    .count();
-            if (unknownNeighbours < leastUnknownNeighbours) {
-                bestStrategicCell = cell;
-                leastUnknownNeighbours = unknownNeighbours;
-            }
-        }
-        return bestStrategicCell;
+        return lowestProbCells;
     }
 
     public Map<Cell, BigFraction> getProbabilities() {
@@ -114,14 +92,14 @@ public class TrueProbabilityMineSolver implements IProbabilityMineSolver {
 
                 blockModelInSolver(solver, model);
             }
-        } catch (TimeoutException | ContradictionException e) {
-            e.printStackTrace();
+        } catch (TimeoutException t) {
+            return probabilities;
+        } finally {
+            // need to make sure that solver will get garbage collected
+            // https://gitlab.ow2.org/sat4j/sat4j/-/issues/55
+            solver.reset();
+            solver = null;
         }
-
-        // need to make sure that solver will get garbage collected
-        // https://gitlab.ow2.org/sat4j/sat4j/-/issues/55
-        solver.reset();
-        solver = null;
 
         if (seaSize > 0) {
             updateSeaCellProbabilities(probabilities, totalModels, totalSeaModels);
@@ -177,12 +155,16 @@ public class TrueProbabilityMineSolver implements IProbabilityMineSolver {
         }
     }
 
-    private void blockModelInSolver(PBSolver solver, int[] model) throws ContradictionException {
+    private void blockModelInSolver(PBSolver solver, int[] model) {
         // Remove current solution from possible solutions
         for (int i = 0; i < model.length; i++) {
             model[i] *= -1;
         }
         IVecInt block = new VecInt(model);
-        solver.addBlockingClause(block);
+        try {
+            solver.addBlockingClause(block);
+        } catch (ContradictionException e) {
+            e.printStackTrace();
+        }
     }
 }
