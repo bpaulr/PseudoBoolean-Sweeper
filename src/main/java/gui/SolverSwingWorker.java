@@ -76,6 +76,9 @@ public class SolverSwingWorker extends SwingWorker<Boolean, Boolean> {
             Map<Cell, Boolean> knownCells = solver.getKnownCells();
             boolean changesWereMade = makeChanges(knownCells);
             if (changesWereMade) {
+                if (!loop) {
+                    break;
+                }
                 i = -1;
                 continue;
             }
