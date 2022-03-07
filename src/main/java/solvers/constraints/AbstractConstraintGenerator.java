@@ -14,9 +14,15 @@ import java.util.Optional;
 
 public abstract class AbstractConstraintGenerator implements IPBConstraintGenerator {
 
+    private final String LOG_ENV_NAME = "CONSTRAINT_LOG";
+    private final boolean DO_LOG = System.getenv(LOG_ENV_NAME) != null && System.getenv(LOG_ENV_NAME).equalsIgnoreCase("verbose");
     private final String LOG_FILE_NAME = "constraints.log";
 
     private void writeLog(IVecInt literals, IVecInt coefficients, String comparator, int degree) {
+        if (!DO_LOG) {
+            return;
+        }
+
         try(FileWriter fw = new FileWriter(LOG_FILE_NAME, true);
             BufferedWriter bw = new BufferedWriter(fw);
             PrintWriter out = new PrintWriter(bw))
