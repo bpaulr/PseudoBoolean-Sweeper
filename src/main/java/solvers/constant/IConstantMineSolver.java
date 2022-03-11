@@ -1,10 +1,10 @@
-package main.java.solvers;
+package main.java.solvers.constant;
 
-import main.java.Cell;
+import main.java.game.Cell;
 
 import java.util.Map;
 
-public interface Solver {
+public interface IConstantMineSolver {
     /**
      * Return a mapping of cells to if they are a mine.
      * <p>

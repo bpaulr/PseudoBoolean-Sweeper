@@ -1,7 +1,7 @@
 package main.java.solvers;
 
-import main.java.Cell;
-import main.java.CellState;
+import main.java.game.Cell;
+import main.java.game.CellState;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,21 +10,9 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public abstract class AbstractSolver implements Solver {
+public class SolverUtil {
 
-    protected final Cell[][] cells;
-    protected final int width;
-    protected final int height;
-    protected final int mines;
-
-    public AbstractSolver(Cell[][] cells, int width, int height, int mines) {
-        this.cells = cells;
-        this.width = width;
-        this.height = height;
-        this.mines = mines;
-    }
-
-    protected Stream<Cell> cellMatrixToStream() {
+    public static Stream<Cell> cellMatrixToStream(Cell[][] cells) {
         return Arrays.stream(cells)
                 .flatMap(Arrays::stream);
     }
@@ -36,8 +24,23 @@ public abstract class AbstractSolver implements Solver {
      * @param c cell to encode.
      * @return a unique integer identifier for given cell.
      */
-    protected int encodeCellId(final Cell c) {
+    public static int encodeCellId(Cell c, int width) {
         return (c.getY() * width + c.getX()) + 1;
+    }
+
+    /**
+     * Encodes a literal so that it does not collide with any cell literals.
+     *
+     * @param lit the ith literal wanting to be encoded.
+     * @return an encoded literal.
+     */
+    public static int encodeLit(int lit, int height, int width) {
+        return (height * width) + width + lit;
+    }
+
+    public static Stream<Cell> filterCellStatesToStream(Cell[][] cells, CellState state) {
+        return cellMatrixToStream(cells)
+                .filter(cell -> cell.getState() == state);
     }
 
     /**
@@ -47,9 +50,7 @@ public abstract class AbstractSolver implements Solver {
      * @return the cell that the id refers to. Null if it is impossible for the
      * passed id to be a cell.
      */
-    public Optional<Cell> decodeCellId(final int id) {
-        final int width = cells.length;
-        final int height = cells[0].length;
+    public static Optional<Cell> decodeCellId(Cell[][] cells, int id, int height, int width) {
         int posId = id < 0 ? id * -1 : id;
         if (posId > ((height - 1) * width + (width - 1)) + 1) {
             return Optional.empty();
@@ -59,7 +60,7 @@ public abstract class AbstractSolver implements Solver {
         return Optional.of(cells[x][y]);
     }
 
-    public List<Cell> getNeighbours(final int x, final int y) {
+    public static List<Cell> getNeighbours(Cell[][] cells, int x, int y) {
         final int width = cells.length;
         final int height = cells[0].length;
         List<Cell> neighbours = new ArrayList<>();
@@ -74,23 +75,13 @@ public abstract class AbstractSolver implements Solver {
     }
 
     /**
-     * Encodes a literal so that it does not collide with any cell literals.
-     *
-     * @param lit the ith literal wanting to be encoded.
-     * @return an encoded literal.
-     */
-    protected int encodeLit(final int lit) {
-        return (height * width) + width + lit;
-    }
-
-    /**
      * Return a list of all the games land cells. Note: a land cell is a cell that
      * has been probed (is open).
      *
      * @return a list of cells that are classed as land cells.
      */
-    public List<Cell> getLandCells() {
-        return cellMatrixToStream()
+    public static List<Cell> getLandCells(Cell[][] cells) {
+        return cellMatrixToStream(cells)
                 .filter(cell -> cell.getState() == CellState.OPEN)
                 .collect(Collectors.toList());
     }
@@ -101,10 +92,10 @@ public abstract class AbstractSolver implements Solver {
      *
      * @return a list of cells that are classed as sea cells.
      */
-    public List<Cell> getSeaCells() {
-        return cellMatrixToStream()
+    public static List<Cell> getSeaCells(Cell[][] cells) {
+        return cellMatrixToStream(cells)
                 .filter(cell -> cell.getState() != CellState.OPEN)
-                .filter(cell -> ((int) getNeighbours(cell.getX(), cell.getY()).stream()
+                .filter(cell -> ((int) getNeighbours(cells, cell.getX(), cell.getY()).stream()
                         .filter(c -> c.getState() == CellState.OPEN)
                         .limit(1)
                         .count()) == 0)
@@ -118,11 +109,11 @@ public abstract class AbstractSolver implements Solver {
      *
      * @return a list of cells that are classed as closed shore cells.
      */
-    public List<Cell> getClosedShoreCells() {
-        return cellMatrixToStream()
+    public static List<Cell> getClosedShoreCells(Cell[][] cells) {
+        return cellMatrixToStream(cells)
                 .filter(cell -> cell.getState() != CellState.OPEN)
                 .filter(cell -> {
-                    List<Cell> neighbours = getNeighbours(cell.getX(), cell.getY());
+                    List<Cell> neighbours = getNeighbours(cells, cell.getX(), cell.getY());
                     return ((int) neighbours.stream()
                             .filter(c -> c.getState() == CellState.OPEN)
                             .limit(1)
@@ -137,11 +128,11 @@ public abstract class AbstractSolver implements Solver {
      *
      * @return a list of cells that are classed as open shore cells.
      */
-    public List<Cell> getOpenShoreCells() {
-        return cellMatrixToStream()
+    public List<Cell> getOpenShoreCells(Cell[][] cells) {
+        return cellMatrixToStream(cells)
                 .filter(cell -> cell.getState() != CellState.OPEN)
                 .filter(cell -> {
-                    List<Cell> neighbours = getNeighbours(cell.getX(), cell.getY());
+                    List<Cell> neighbours = getNeighbours(cells, cell.getX(), cell.getY());
                     return ((int) neighbours.stream()
                             .filter(c -> c.getState() != CellState.OPEN)
                             .limit(1)
@@ -150,15 +141,4 @@ public abstract class AbstractSolver implements Solver {
                 .collect(Collectors.toList());
     }
 
-    public int calcFlaggedNeighbours(final int x, final int y) {
-        return (int) getNeighbours(x, y).stream()
-                .filter(cell -> cell.getState() == CellState.FLAGGED)
-                .count();
-    }
-
-    public int calcClosedNeighbours(final int x, final int y) {
-        return (int) getNeighbours(x, y).stream()
-                .filter(cell -> cell.getState() != CellState.OPEN)
-                .count();
-    }
 }

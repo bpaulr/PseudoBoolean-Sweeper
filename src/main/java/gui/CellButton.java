@@ -1,7 +1,5 @@
 package main.java.gui;
 
-import main.java.DisplayState;
-
 import javax.swing.*;
 import javax.swing.plaf.metal.MetalButtonUI;
 import java.awt.*;
@@ -12,7 +10,7 @@ public class CellButton extends JButton {
     public static final String MINE_TEXT = "❌";
     public static final String FLAGGED_MINE_TEXT = "✔";
     private static final int CELL_WIDTH = 50;
-    private static final int TEXT_SIZE = CELL_WIDTH / 3;
+    private static final int TEXT_SIZE = CELL_WIDTH / 5;
 
     private DisplayState displayState;
 
@@ -21,6 +19,7 @@ public class CellButton extends JButton {
         setDisplayState(DisplayState.CLOSED);
         this.setFont(new Font("", Font.BOLD, TEXT_SIZE));
         this.setToolTipText(name);
+//        this.setText(name);
     }
 
     public DisplayState getDisplayState() {

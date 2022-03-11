@@ -1,4 +1,4 @@
-package main.java;
+package main.java.game;
 
 public class Cell {
     // ID of cell (cell coordinates)

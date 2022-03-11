@@ -1,4 +1,4 @@
-package main.java;
+package main.java.game;
 
 public enum Difficulty {
     BEGINNER(9, 9, 10), INTERMEDIATE(16, 16, 40), EXPERT(30, 16, 99);
